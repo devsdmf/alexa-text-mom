@@ -1,0 +1,18 @@
+{
+  "name": "app-bootcamp",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Lucas Mendes <devsdmf@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "ask-sdk-core": "^2.10.2",
+    "ask-sdk-express-adapter": "^2.10.2",
+    "ask-sdk-model": "^1.35.1",
+    "body-parser": "^1.19.0",
+    "dotenv": "^9.0.2",
+    "express": "^4.17.1",
+    "morgan": "^1.10.0",
+    "twilio": "^3.62.0",
+    "winston": "^3.3.3"
+  }
+}
