@@ -14,5 +14,8 @@
     "morgan": "^1.10.0",
     "twilio": "^3.62.0",
     "winston": "^3.3.3"
+  },
+  "scripts": {
+    "start": "node index.js"
   }
 }
