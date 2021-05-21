@@ -5,40 +5,48 @@ const morgan = require('morgan');
 const Alexa = require('ask-sdk-core');
 const { ExpressAdapter } = require('ask-sdk-express-adapter');
 
-module.exports = () => {
-    dotenv.config();
+module.exports = {
+    boot: () => {
+        // setting up environment variables
+        dotenv.config();
 
-    const client = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    const app = express();
+        // initializing express framework
+        const app = express();
+        
+        // setting up framework middlewares
+        app.use(morgan('combined'));
 
-    const port = process.env.PORT || 3000;
+        // initializing twilio integration
+        const client = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
-    app.use(morgan('combined'));
+        // getting alexa handlers
+        const { 
+            AlexaErrorHandler, 
+            LaunchRequestHandler, 
+            NotifyIntentHandler, 
+            SessionEndedRequestHandler 
+        } = require('./handlers')(client, logger, process.env.TWILIO_NUMBER, process.env.DESTINATION_NUMBER);
 
-    const { 
-        AlexaErrorHandler, 
-        LaunchRequestHandler, 
-        NotifyIntentHandler, 
-        SessionEndedRequestHandler 
-    } = require('./handlers')(client, logger, process.env.TWILIO_NUMBER, process.env.DESTINATION_NUMBER);
+        // building app alexa skill handler
+        const skillBuilder = Alexa.SkillBuilders.custom();
+        const skill = skillBuilder
+            .withSkillId(process.env.ALEXA_SKILL_ID)
+            .addRequestHandlers(LaunchRequestHandler, NotifyIntentHandler, SessionEndedRequestHandler)
+            .addErrorHandlers(AlexaErrorHandler)
+            .create();
+        const adapter = new ExpressAdapter(skill, true, true);
 
-    const skillBuilder = Alexa.SkillBuilders.custom();
-    const skill = skillBuilder
-        .withSkillId(process.env.ALEXA_SKILL_ID)
-        .addRequestHandlers(LaunchRequestHandler, NotifyIntentHandler, SessionEndedRequestHandler)
-        .addErrorHandlers(AlexaErrorHandler)
-        .create();
+        // setting up application routes
+        app.get('/', (req, res) => res.send('Hello World!'));
+        app.post('/', (req, res, next) => {
+            logger.info('Alexa sent a request');
+            next();
+        }, adapter.getRequestHandlers());
 
-    const adapter = new ExpressAdapter(skill, true, true);
-
-    app.get('/', (req, res) => res.send('Hello World!'));
-    app.post('/', (req, res, next) => {
-        logger.info('Alexa sent a request');
-        next();
-    }, adapter.getRequestHandlers());
-
-    app.listen(port, () => {
-        console.log(process.env.ALEXA_SKILL_ID, process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN, process.env.TWILIO_NUMBER);
-        logger.info(`Server is listening to ${port} port on localhost`);
-    });
+        // starting up http server
+        const port = process.env.PORT || 3000;
+        app.listen(port, () => {
+            logger.info(`Server is listening to ${port} port`);
+        });
+    }
 };
