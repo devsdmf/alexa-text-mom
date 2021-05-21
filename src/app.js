@@ -31,6 +31,7 @@ module.exports = {
         const skillBuilder = Alexa.SkillBuilders.custom();
         const skill = skillBuilder
             .withSkillId(process.env.ALEXA_SKILL_ID)
+            .withApiClient(new Alexa.DefaultApiClient())
             .addRequestHandlers(LaunchRequestHandler, NotifyIntentHandler, SessionEndedRequestHandler)
             .addErrorHandlers(AlexaErrorHandler)
             .create();

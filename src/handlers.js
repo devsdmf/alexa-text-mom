@@ -1,4 +1,5 @@
 const Alexa = require('ask-sdk-core');
+const temporal = require('temporal');
 
 const TWILIO_STATUS_ACCEPTED = 'accepted';
 const TWILIO_STATUS_SCHEDULED = 'scheduled';
@@ -29,7 +30,7 @@ const ALEXA_STATUS_DENIED = 'DENIED';
 
 const isConfirmed = (s) => s === ALEXA_STATUS_CONFIRMED;
 
-const INTENT_SMS_SENT_MESSAGE = 'Tudo bem, enviei um SMS avisando ela!';
+const INTENT_SMS_SENT_MESSAGE = 'Consegui enviar o SMS!';
 const INTENT_SMS_SENDING_MESSAGE = 'Tudo bem, estou enviando um SMS para ela!';
 const INTENT_SMS_ERROR_MESSAGE = 'Tentei enviar um SMS para ela, mas não consegui.';
 const INTENT_SMS_NOT_SENT = 'Tudo bem, não vou avisá-la desta vez';
@@ -65,31 +66,54 @@ module.exports = (twilioClient, logger, from, to) => ({
             return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest' &&
                 Alexa.getIntentName(handlerInput.requestEnvelope) === 'NotifyIntent';
         },
-        handle: (handlerInput) => {
-            const confirmed = isConfirmed(handlerInput
-                .requestEnvelope
-                .request
-                .intent
-                .confirmationStatus
-            );
+        handle: async (handlerInput) => {
+            const { requestEnvelope } = handlerInput;
+            const confirmationStatus = requestEnvelope.request.intent.confirmationStatus;
+            const confirmed = isConfirmed(confirmationStatus);
 
-            let speechText = '';
             if (confirmed) {
-                return twilioClient.messages.create({
+                const directiveClient = handlerInput.serviceClientFactory.getDirectiveServiceClient();
+                const directive = {
+                    header: {
+                        requestId: requestEnvelope.request.requestId
+                    },
+                    directive: {
+                        type: 'VoicePlayer.Speak',
+                        speech: INTENT_SMS_SENDING_MESSAGE
+                    }
+                };
+
+                return directiveClient.enqueue(
+                    directive,
+                    requestEnvelope.context.System.apiEndpoint,
+                    requestEnvelope.context.System.apiAccessToken
+                ).then(async () => twilioClient.messages.create({
                     body: 'Cheguei em casa!',
                     from,
                     to
-                }).then(message => {
-                    const responseBuilder = handlerInput.responseBuilder;
-                    if (TWILIO_SUCCESSFUL_STATUSES.includes(message.status)) {
-                        responseBuilder.speak(INTENT_SMS_SENT_MESSAGE);
-                    } else if (TWILIO_PENDING_STATUSES.includes(message.status)) {
-                        responseBuilder.speak(INTENT_SMS_SENDING_MESSAGE);
-                    } else {
-                        responseBuilder.speak(INTENT_SMS_ERROR_MESSAGE);
-                    }
-
-                    return responseBuilder.getResponse();
+                })).then(result => {
+                    return new Promise((resolve, reject) => {
+                        setTimeout(async () => {
+                            const message = await twilioClient.messages(result.sid).fetch();
+                            if (TWILIO_SUCCESSFUL_STATUSES.includes(message.status)) {
+                                resolve(handlerInput
+                                    .responseBuilder
+                                    .speak(INTENT_SMS_SENT_MESSAGE)
+                                    .getResponse());
+                            } else if (TWILIO_FAILURE_STATUSES.includes(message.status)) {
+                                resolve(handlerInput
+                                    .responseBuilder
+                                    .speak(INTENT_SMS_ERROR_MESSAGE)
+                                    .getResponse());
+                            }
+                        }, 1000);
+                    });
+                }).catch(err => {
+                    logger.err('An error occurred at trying to send the SMS', err);
+                    return handlerInput
+                        .responseBuilder
+                        .speak(INTENT_SMS_ERROR_MESSAGE)
+                        .getResponse();
                 });
             } else {
                 return handlerInput
@@ -101,6 +125,6 @@ module.exports = (twilioClient, logger, from, to) => ({
     },
     SessionEndedRequestHandler: {
         canHandle: (handlerInput) => Alexa.getRequestType(handlerInput.requestEnvelope) === 'SessionEndedRequest',
-        handle: (handlerInput) => handlerInput.responseBuilder.getRespose(),
+        handle: (handlerInput) => handlerInput.responseBuilder.getResponse(),
     }
 });
