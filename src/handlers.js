@@ -1,39 +1,25 @@
 const Alexa = require('ask-sdk-core');
-const temporal = require('temporal');
 
-const TWILIO_STATUS_ACCEPTED = 'accepted';
-const TWILIO_STATUS_SCHEDULED = 'scheduled';
-const TWILIO_STATUS_QUEUED = 'queued';
-const TWILIO_STATUS_SENDING = 'sending';
-const TWILIO_STATUS_SENT = 'sent';
-const TWILIO_STATUS_DELIVERED = 'delivered';
-const TWILIO_STATUS_UNDELIVERED = 'undelivered';
+const {
+    TWILIO_PENDING_STATUSES,
+    TWILIO_SUCCESSFUL_STATUSES,
+    TWILIO_FAILURE_STATUSES
+} = require('./twilio/status');
 
-const TWILIO_PENDING_STATUSES = [
-    TWILIO_STATUS_ACCEPTED,
-    TWILIO_STATUS_SCHEDULED,
-    TWILIO_STATUS_QUEUED,
-    TWILIO_STATUS_SENDING
-];
-
-const TWILIO_SUCCESSFUL_STATUSES = [
-    TWILIO_STATUS_SENT,
-    TWILIO_STATUS_DELIVERED
-];
-
-const TWILIO_FAILURE_STATUSES = [
-    TWILIO_STATUS_UNDELIVERED
-];
-
-const ALEXA_STATUS_CONFIRMED = 'CONFIRMED';
-const ALEXA_STATUS_DENIED = 'DENIED';
+const {
+    ALEXA_STATUS_CONFIRMED
+} = require('./alexa/status');
 
 const isConfirmed = (s) => s === ALEXA_STATUS_CONFIRMED;
 
-const INTENT_SMS_SENT_MESSAGE = 'Consegui enviar o SMS!';
-const INTENT_SMS_SENDING_MESSAGE = 'Tudo bem, estou enviando um SMS para ela!';
-const INTENT_SMS_ERROR_MESSAGE = 'Tentei enviar um SMS para ela, mas não consegui.';
-const INTENT_SMS_NOT_SENT = 'Tudo bem, não vou avisá-la desta vez';
+const { SMS_BODY } = require('./model/sms');
+
+const {
+    INTENT_SMS_SENT_MESSAGE,
+    INTENT_SMS_SENDING_MESSAGE,
+    INTENT_SMS_ERROR_MESSAGE,
+    INTENT_SMS_NOT_SENT
+} = require('./model/intentMessages');
 
 module.exports = (twilioClient, logger, from, to) => ({
     AlexaErrorHandler: {
@@ -88,7 +74,7 @@ module.exports = (twilioClient, logger, from, to) => ({
                     requestEnvelope.context.System.apiEndpoint,
                     requestEnvelope.context.System.apiAccessToken
                 ).then(async () => twilioClient.messages.create({
-                    body: 'Cheguei em casa!',
+                    body: SMS_BODY,
                     from,
                     to
                 })).then(result => {
